@@ -30,13 +30,18 @@
 	 (multiple-value-bind (*server-buffer* size client receive-port)
 	     (usocket:socket-receive *server-socket* *server-buffer* 8)
 	   (format t "~A~%" *server-buffer*)
+	   (setf *last-time* (sdl2:get-ticks))
 	   (sdl2:with-event-loop (:method :poll)	     
 	     (:idle 
 	      ()
-	      (format t "server to client~%")
-	      (usocket:socket-send *server-socket* (reverse *server-buffer*) size
-				   :port receive-port
-				   :host client)
+	      (setf *current-time* (sdl2:get-ticks))
+	      (setf *delta-time* (- *current-time* *last-time*))
+	      (when (>=  *delta-time* 3000.0)
+		(incf *last-time* 3000.0)
+		(format t "server to client~%")
+		(usocket:socket-send *server-socket* (reverse *server-buffer*) size
+				     :port receive-port
+				     :host client))
 	      )
 	     (:quit () t)))
       (stop-server))))

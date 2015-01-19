@@ -31,13 +31,11 @@
 	   (replace *client-buffer* #(1 2 3 4 5 6 7 8))
 	   (format t "Sending data~%")
 	   (usocket:socket-send *server-connection* *client-buffer* 8)
-	   )
-	 
-	 (sdl2:with-event-loop (:method :poll)	     
-	   (:idle 
-	    ()
-	    (format t "Receiving data ")
-	    (usocket:socket-receive *server-connection* *client-buffer* 8)
-	    (format t "~A~%" *client-buffer*))
-	   (:quit () t))
+	   (sdl2:with-event-loop (:method :poll)	     
+	     (:idle 
+	      ()
+	      (format t "Receiving data ")
+	      (usocket:socket-receive *server-connection* *client-buffer* 8)
+	      (format t "~A~%" *client-buffer*))
+	     (:quit () t)))
       (disconnect-from-server))))
