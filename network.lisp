@@ -1,16 +1,6 @@
 (in-package #:udp-example)
 
-(defun create-server (port)
-  (usocket:socket-connect nil nil
-			  :protocol :datagram
-			  :element-type '(unsigned-byte 8)
-			  :local-host "127.0.0.1"
-			  :local-port port))
 
-(defun create-client (port)
-  (usocket:socket-connect "127.0.0.1" port
-			  :protocol :datagram
-			  :element-type '(unsigned-byte 8)))
 
 ;; (defun send-packet (to buffer)
 ;;   (unwind-protect
