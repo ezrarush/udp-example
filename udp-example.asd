@@ -2,10 +2,12 @@
 
 (asdf:defsystem #:udp-example
   :serial t
-  :description "Describe udp-example here"
-  :author "Your Name <your.name@example.com>"
-  :license "Specify license here"
+  :description "A simple UDP server and client"
+  :author "Ezra Rush <rushwest@gmail.com>"
+  :license "The MIT License (MIT) Copyright (c) 2015 Ezra Rush"
   :depends-on (#:usocket)
   :components ((:file "package")
-               (:file "udp-example")))
-
+	       (:file "udp-example")
+	       (:file "network")
+	       (:file "server")
+               (:file "client")))
