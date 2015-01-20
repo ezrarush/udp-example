@@ -6,9 +6,11 @@
   :author "Ezra Rush <rushwest@gmail.com>"
   :license "The MIT License (MIT) Copyright (c) 2015 Ezra Rush"
   :depends-on (#:usocket
+	       #:userial
 	       #:sdl2)
   :components ((:file "package")
-	       (:file "udp-example")
-	       (:file "network")
+	       (:file "serial")
+	       (:file "message")
 	       (:file "server")
-               (:file "client")))
+               (:file "client")
+	       (:file "udp-example")))
