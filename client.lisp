@@ -1,7 +1,7 @@
 (in-package #:udp-example)
 
 (defvar *server-connection* nil)
-(defvar *client-buffer* (make-array 8 :element-type '(unsigned-byte 8) :fill-pointer t))
+(defvar *client-buffer* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t))
 
 (defun connect-to-server (server-ip port)
   (assert (not *server-connection*))
@@ -33,9 +33,9 @@
   (connect-to-server server-ip port)
   (unwind-protect
        (progn
-	 (setf (aref *client-buffer* 0) 99)
-	 (format t "sending data to server~%")
-	 (usocket:socket-send *server-connection* *client-buffer* 8)
+	 ;; (setf (aref *client-buffer* 0) 99)
+	 (format t "sending login message to server~%")
+	 (usocket:socket-send *server-connection* (make-login-message name) 32768)
 	 
 	 ;; (userial:with-buffer (make-login-message name)
 	 ;;   (usocket:socket-send *server-connection* (userial:get-buffer) (userial:buffer-length)))

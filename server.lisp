@@ -1,7 +1,7 @@
 (in-package #:udp-example)
 
 (defvar *server-socket* nil)
-(defvar *server-buffer* (make-array 8 :element-type '(unsigned-byte 8) :fill-pointer t))
+(defvar *server-buffer* (make-array 65507 :element-type '(unsigned-byte 8) :fill-pointer t))
 
 (defvar *client* nil)
 (defvar *receive-port* nil)
@@ -23,6 +23,7 @@
 
 (defun handle-message-from-client (message)
   (userial:with-buffer message
+    (userial:buffer-rewind)
     (ecase (userial:unserialize :client-opcode)
       (:login       (handle-login-message message)))))
 
@@ -41,16 +42,16 @@
   (start-server server-ip port)
   (unwind-protect
        (multiple-value-bind (*server-buffer* size *client* *receive-port*)
-	   (read-message)
+	   (usocket:socket-receive *server-socket* *server-buffer* nil)
 	 (format t "Received data: ~A~%" *server-buffer*)
 
-	 ;; (handle-message-from-client *server-buffer*)
+	 (handle-message-from-client *server-buffer*)
 
 	 
 	 (format t "server to client~%")
 	 
 	 (usocket:socket-send *server-socket* 
-			      (reverse *server-buffer*) 
+			      *server-buffer* 
 			      size
 			      :port *receive-port*
 			      :host *client*)
