@@ -10,7 +10,6 @@
 	       #:sdl2)
   :components ((:file "package")
 	       (:file "serial")
-	       (:file "message")
 	       (:file "server")
                (:file "client")
 	       (:file "udp-example")))
