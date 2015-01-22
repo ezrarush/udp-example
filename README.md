@@ -26,6 +26,17 @@ Run the following in a second command line instance from the project folder:
 sbcl --load run-client.lisp
 ```
 
+###Multiple Clients
+
+Run the following in yet another command line instance from the project folder:
+
+```
+sbcl --load run-client.lisp
+```
+
+Repeat for as many clients as desired
+
+
 #References
 
 [USocket Test Datagram](https://github.com/bsmr-common-lisp/usocket/blob/a9ad102c41d94105038195ca5bfb31d2c3d61ba5/test/test-datagram.lisp)
@@ -35,3 +46,5 @@ sbcl --load run-client.lisp
 [Short guide to UDP/IP Client/Server programming in Common Lisp using usockets](https://gist.github.com/shortsightedsid/a760e0d83a9557aaffcc)
 
 [Game Networking](http://gafferongames.com/networking-for-game-programmers/) 
+
+[Beej's Guide to Network Programming](http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html)

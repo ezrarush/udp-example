@@ -19,6 +19,12 @@
   (usocket:socket-close *server-socket*)
   (setf *server-socket* nil))
 
+(defun read-message ()
+  (when (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t) 
+	      (multiple-value-bind (buffer size *current-remote-host* *current-remote-port*)
+		     (usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
+		   (handle-message-from-client buffer))))
+
 (defun send-message (client buffer)
   (usocket:socket-send *server-socket* 
 		       buffer
@@ -65,12 +71,10 @@
   (start-server server-ip port)
   (unwind-protect
        (loop 
-	  (when (usocket:wait-for-input *server-socket* :timeout 1 :ready-only t) 
-	      (multiple-value-bind (buffer size *current-remote-host* *current-remote-port*)
-		     (usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
-		   (handle-message-from-client buffer)))
+	  (read-message)
 	  (format t "sending data to ~a clients~%" (hash-table-count *clients*))
 	  (finish-output)
 	  (loop for client being the hash-value in *clients* do
-	       (send-message client (make-update-data-message (random 10)))))
+	       (send-message client (make-update-data-message (random 10))))
+	  (sleep 1))
     (stop-server)))

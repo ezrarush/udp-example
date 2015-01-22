@@ -57,10 +57,10 @@
 	 (format t "waiting for ack~%")
 	 (finish-output)
 	 (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))
-	 (format t "waiting for data~%")
-	 (finish-output)
-	 (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))
-	 (format t "logging out~%")
-	 (finish-output)
-	 (usocket:socket-send *server-connection* (make-logout-message) 32768))
+	 (unwind-protect
+	      (loop
+		 (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)))
+	   (format t "logging out~%")
+	   (finish-output)
+	   (usocket:socket-send *server-connection* (make-logout-message) 32768)))
     (disconnect-from-server)))
