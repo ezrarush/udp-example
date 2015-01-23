@@ -16,6 +16,15 @@
   (usocket:socket-close *server-connection*)
   (setf *server-connection* nil))
 
+(defun send-message-to-server (buffer)
+  (usocket:socket-send *server-connection*
+		       buffer
+		       32768))
+
+(defun read-message-from-server ()
+  (when (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t) 
+    (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))))
+
 (defun handle-message-from-server (message)
   (userial:with-buffer message
     (userial:buffer-rewind)
@@ -53,14 +62,12 @@
        (progn
 	 (format t "sending login message to server~%")
 	 (finish-output)
-	 (usocket:socket-send *server-connection* (make-login-message name) 32768)
+	 (send-message-to-server (make-login-message name))
 	 (format t "waiting for ack~%")
 	 (finish-output)
-	 (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))
 	 (unwind-protect
-	      (loop
-		 (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)))
+	      (loop (read-message-from-server))
 	   (format t "logging out~%")
 	   (finish-output)
-	   (usocket:socket-send *server-connection* (make-logout-message) 32768)))
+	   (send-message-to-server (make-logout-message))))
     (disconnect-from-server)))

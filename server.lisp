@@ -72,9 +72,10 @@
   (unwind-protect
        (loop 
 	  (read-message)
-	  (format t "sending data to ~a clients~%" (hash-table-count *clients*))
+	  (format t "sending data to ~a client(s)~%" (hash-table-count *clients*))
 	  (finish-output)
-	  (loop for client being the hash-value in *clients* do
-	       (send-message client (make-update-data-message (random 10))))
+	  (let ((buffer (make-update-data-message (random 10))))
+	    (loop for client being the hash-value in *clients* do
+		 (send-message client buffer)))
 	  (sleep 1))
     (stop-server)))
