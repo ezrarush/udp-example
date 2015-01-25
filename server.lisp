@@ -19,37 +19,37 @@
   (usocket:socket-close *server-socket*)
   (setf *server-socket* nil))
 
-(defun read-message ()
+(defun read-packet ()
   (when (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t) 
 	      (multiple-value-bind (buffer size *current-remote-host* *current-remote-port*)
 		     (usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
-		   (handle-message-from-client buffer))))
+		   (handle-packet-from-client buffer))))
 
-(defun send-message (client buffer)
+(defun send-packet (client buffer)
   (usocket:socket-send *server-socket* 
 		       buffer
 		       32768
 		       :host (remote-host client)
 		       :port (remote-port client)))
 
-(defun handle-message-from-client (message)
-  (userial:with-buffer message
+(defun handle-packet-from-client (packet)
+  (userial:with-buffer packet
     (userial:buffer-rewind)
     (ecase (userial:unserialize :client-opcode)
-      (:login  (handle-login-message message))
-      (:logout (handle-logout-message message)))))
+      (:login  (handle-login-packet packet))
+      (:logout (handle-logout-packet packet)))))
 
-(defun handle-login-message (message) 
-  (userial:with-buffer message
+(defun handle-login-packet (packet) 
+  (userial:with-buffer packet
     (userial:unserialize-let* (:string name)
 			      (assert (plusp (length name)))
 			      (let ((client (make-client name *current-remote-host* *current-remote-port*)))
-				(send-message client (make-ack-message (client-id client)))
+				(send-packet client (make-ack-packet (client-id client)))
 				(format t "client ~a has joined the server~%" (client-id client))
 				(finish-output)))))
 
-(defun handle-logout-message (message)
-  (userial:with-buffer message 
+(defun handle-logout-packet (packet)
+  (userial:with-buffer packet 
     (userial:unserialize-let* (:int32 client-id)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
@@ -57,12 +57,12 @@
 				(format t "client ~a logged out~%" client-id)
 				(finish-output)))))
 
-(defun make-ack-message (client-id)
+(defun make-ack-packet (client-id)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :ack
 			:int32 client-id)))
 
-(defun make-update-data-message (data)
+(defun make-update-data-packet (data)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :update-data
 			:int32 data)))
@@ -71,11 +71,11 @@
   (start-server server-ip port)
   (unwind-protect
        (loop 
-	  (read-message)
+	  (read-packet)
 	  (format t "sending data to ~a client(s)~%" (hash-table-count *clients*))
 	  (finish-output)
-	  (let ((buffer (make-update-data-message (random 10))))
+	  (let ((buffer (make-update-data-packet (random 10))))
 	    (loop for client being the hash-value in *clients* do
-		 (send-message client buffer)))
+		 (send-packet client buffer)))
 	  (sleep 1))
     (stop-server)))

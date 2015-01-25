@@ -16,42 +16,42 @@
   (usocket:socket-close *server-connection*)
   (setf *server-connection* nil))
 
-(defun send-message-to-server (buffer)
+(defun send-packet-to-server (buffer)
   (usocket:socket-send *server-connection*
 		       buffer
 		       32768))
 
-(defun read-message-from-server ()
+(defun read-packet-from-server ()
   (when (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t) 
-    (handle-message-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))))
+    (handle-packet-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))))
 
-(defun handle-message-from-server (message)
-  (userial:with-buffer message
+(defun handle-packet-from-server (packet)
+  (userial:with-buffer packet
     (userial:buffer-rewind)
     (ecase (userial:unserialize :server-opcode)
-      (:ack         (handle-ack-message message))
-      (:update-data (handle-update-data-message message)))))
+      (:ack         (handle-ack-packet packet))
+      (:update-data (handle-update-data-packet packet)))))
 
 
-(defun handle-ack-message (message)
-  (userial:with-buffer message
+(defun handle-ack-packet (packet)
+  (userial:with-buffer packet
     (userial:unserialize-let* (:int32 client-id)
 			      (setf *client-id* client-id)
 			      (format t "received ack with client id: ~A~%" client-id)
 			      (finish-output))))
 
-(defun handle-update-data-message (message)
-  (userial:with-buffer message
+(defun handle-update-data-packet (packet)
+  (userial:with-buffer packet
     (userial:unserialize-let* (:int32 data)
 			      (format t "received data: ~A~%" data)
 			      (finish-output))))
 
-(defun make-login-message (name)
+(defun make-login-packet (name)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :client-opcode :login
 			:string name)))
 
-(defun make-logout-message ()
+(defun make-logout-packet ()
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :client-opcode :logout
 			:int32 *client-id*)))
@@ -62,12 +62,12 @@
        (progn
 	 (format t "sending login message to server~%")
 	 (finish-output)
-	 (send-message-to-server (make-login-message name))
+	 (send-packet-to-server (make-login-packet name))
 	 (format t "waiting for ack~%")
 	 (finish-output)
 	 (unwind-protect
-	      (loop (read-message-from-server))
+	      (loop (read-packet-from-server))
 	   (format t "logging out~%")
 	   (finish-output)
-	   (send-message-to-server (make-logout-message))))
+	   (send-packet-to-server (make-logout-packet))))
     (disconnect-from-server)))
