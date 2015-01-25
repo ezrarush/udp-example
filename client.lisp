@@ -35,15 +35,15 @@
 
 (defun handle-ack-packet (packet)
   (userial:with-buffer packet
-    (userial:unserialize-let* (:int32 client-id)
+    (userial:unserialize-let* (:uint32 sequence :int32 client-id)
 			      (setf *client-id* client-id)
-			      (format t "received ack with client id: ~A~%" client-id)
+			      (format t "received packet ~a - ack with client id: ~A~%" sequence client-id)
 			      (finish-output))))
 
 (defun handle-update-data-packet (packet)
   (userial:with-buffer packet
-    (userial:unserialize-let* (:int32 data)
-			      (format t "received data: ~A~%" data)
+    (userial:unserialize-let* (:uint32 sequence :int32 data)
+			      (format t "received packet ~a - data: ~A~%" sequence data)
 			      (finish-output))))
 
 (defun make-login-packet (name)

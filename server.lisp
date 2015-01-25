@@ -4,6 +4,10 @@
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
 
+(let ((next-id 0))
+  (defun get-next-sequence ()
+    (incf next-id)))
+
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
   (setf *server-socket*
@@ -60,11 +64,13 @@
 (defun make-ack-packet (client-id)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :ack
+			:uint32 (get-next-sequence)
 			:int32 client-id)))
 
 (defun make-update-data-packet (data)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :update-data
+			:uint32 (get-next-sequence)
 			:int32 data)))
 
 (defun server-main (&key (server-ip usocket:*wildcard-host*) (port 2448))
