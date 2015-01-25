@@ -1,2 +1,2 @@
 (ql:quickload "udp-example")
-(udp-example:server-main)
+(udp-server:server-main)

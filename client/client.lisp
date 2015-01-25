@@ -1,4 +1,4 @@
-(in-package #:udp-example)
+(in-package #:udp-client)
 
 (defvar *server-connection* nil)
 (defvar *client-id*)
@@ -31,7 +31,6 @@
     (ecase (userial:unserialize :server-opcode)
       (:ack         (handle-ack-packet packet))
       (:update-data (handle-update-data-packet packet)))))
-
 
 (defun handle-ack-packet (packet)
   (userial:with-buffer packet

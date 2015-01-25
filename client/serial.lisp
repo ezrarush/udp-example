@@ -1,4 +1,4 @@
-(in-package #:udp-example)
+(in-package #:udp-client)
 
 (userial:make-enum-serializer :client-opcode
                       (:login :logout))
