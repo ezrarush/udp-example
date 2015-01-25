@@ -4,9 +4,13 @@
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
 
+;; local sequence number
 (let ((next-id 0))
   (defun get-next-sequence ()
     (incf next-id)))
+
+;; sequence number of the most recently received packet
+(defvar *remote-sequence-number* 0)
 
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
@@ -45,32 +49,38 @@
 
 (defun handle-login-packet (packet) 
   (userial:with-buffer packet
-    (userial:unserialize-let* (:string name)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :string name)
+			      (assert (> sequence *remote-sequence-number*))
 			      (assert (plusp (length name)))
+			      (setf *remote-sequence-number* sequence)
 			      (let ((client (make-client name *current-remote-host* *current-remote-port*)))
 				(send-packet client (make-ack-packet (client-id client)))
-				(format t "client ~a has joined the server~%" (client-id client))
+				(format t "received packet ~a from client ~a: login~%" sequence (client-id client))
 				(finish-output)))))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:int32 client-id)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 client-id)
+			      (assert (> sequence *current-remote-port*))
 			      (assert client-id)
+			      (setf *remote-sequence-number* sequence)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)
-				(format t "client ~a logged out~%" client-id)
+				(format t "received packet ~a from client ~a: logout~%" remote-sequence client-id)
 				(finish-output)))))
 
 (defun make-ack-packet (client-id)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :ack
+    (userial:serialize* :server-opcode :welcome
 			:uint32 (get-next-sequence)
+			:uint32 *remote-sequence-number*
 			:int32 client-id)))
 
 (defun make-update-data-packet (data)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :update-data
 			:uint32 (get-next-sequence)
+			:uint32 *remote-sequence-number*
 			:int32 data)))
 
 (defun server-main (&key (server-ip usocket:*wildcard-host*) (port 2448))

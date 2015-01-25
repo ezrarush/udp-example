@@ -4,4 +4,4 @@
                       (:login :logout))
 
 (userial:make-enum-serializer :server-opcode
-                      (:ack :update-data))
+                      (:welcome :update-data))
