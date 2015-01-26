@@ -4,14 +4,6 @@
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
 
-;; local sequence number
-(let ((next-id 0))
-  (defun get-next-sequence ()
-    (incf next-id)))
-
-;; sequence number of the most recently received packet
-(defvar *remote-sequence-number* 0)
-
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
   (setf *server-socket*
@@ -35,12 +27,12 @@
       (setf *current-remote-port* remote-port)
       (handle-packet-from-client buffer))))
 
-(defun send-packet (client buffer)
+(defun send-packet (channel buffer)
   (usocket:socket-send *server-socket* 
 		       buffer
 		       32768
-		       :host (remote-host client)
-		       :port (remote-port client)))
+		       :host (remote-host channel)
+		       :port (remote-port channel)))
 
 (defun handle-packet-from-client (packet)
   (userial:with-buffer packet
@@ -51,38 +43,36 @@
 
 (defun handle-login-packet (packet) 
   (userial:with-buffer packet
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :string name)
-      (assert (> sequence *remote-sequence-number*))
+    (userial:unserialize-let* (:string name)
       (assert (plusp (length name)))
-      (setf *remote-sequence-number* sequence)
-      (let ((client (make-client name *current-remote-host* *current-remote-port*)))
-	(send-packet client (make-ack-packet (client-id client)))
-	(format t "received packet ~a from client ~a: login~%" sequence (client-id client))
+      (let ((client (make-client name))
+	    (channel (make-channel *current-remote-host* *current-remote-port*)))
+	(setf (channel client) channel)
+	(send-packet channel (make-welcome-packet (sequence-number channel) (remote-sequence-number channel) (client-id client)))
+	(format t "client ~a logged in~%" (client-id client))
 	(finish-output)))))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 client-id)
-      (assert (> sequence *current-remote-port*))
       (assert client-id)
-      (setf *remote-sequence-number* sequence)
       (let ((client (lookup-client-by-id client-id)))
 	(remove-client client)
-	(format t "received packet ~a from client ~a: logout~%" remote-sequence client-id)
+	(format t "client ~a: logged out~%" client-id)
 	(finish-output)))))
 
-(defun make-ack-packet (client-id)
+(defun make-welcome-packet (sequence ack client-id)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :welcome
-			:uint32 (get-next-sequence)
-			:uint32 *remote-sequence-number*
+			:uint32 sequence
+			:uint32 ack
 			:int32 client-id)))
 
-(defun make-update-data-packet (data)
+(defun make-update-data-packet (sequence ack data)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :update-data
-			:uint32 (get-next-sequence)
-			:uint32 *remote-sequence-number*
+			:uint32 sequence
+			:uint32 ack
 			:int32 data)))
 
 (defun server-main (&key (server-ip usocket:*wildcard-host*) (port 2448))
@@ -92,7 +82,7 @@
 	  (read-packet)
 	  (format t "sending data to ~a client(s)~%" (hash-table-count *clients*))
 	  (finish-output)
-	  (loop for client being the hash-value in *clients* do
-	       (send-packet client (make-update-data-packet (random 10))))
+	  (loop for channel being the hash-value in *channels* do
+	       (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (random 10))))
 	  (sleep 1))
     (stop-server)))

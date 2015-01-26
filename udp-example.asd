@@ -15,4 +15,5 @@
 			:components ((:file "package")
 				     (:file "serial")
 				     (:file "client-database")
+				     (:file "channel")
 				     (:file "server")))))

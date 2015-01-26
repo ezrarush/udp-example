@@ -33,16 +33,13 @@
    (name 
     :initarg :name
     :accessor name)
-   (remote-host
-    :initarg :remote-host
-    :accessor remote-host)
-   (remote-port
-    :initarg :remote-port
-    :accessor remote-port)))
+   (channel
+    :initarg :channel
+    :accessor channel)))
 
 (defmethod initialize-instance :after ((self client) &key)
   (add-client self))
 
-(defun make-client (name remote-host remote-port)
-  (make-instance 'client :name name :remote-host remote-host :remote-port remote-port))
+(defun make-client (name)
+  (make-instance 'client :name name))
 
