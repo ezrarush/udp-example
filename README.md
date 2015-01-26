@@ -47,4 +47,17 @@ Repeat for as many clients as desired
 
 [Game Networking](http://gafferongames.com/networking-for-game-programmers/) 
 
+[1500 Archers on a 28.8: Network Programming in Age of Empires and Beyond](http://www.gamasutra.com/view/feature/3094/1500_archers_on_a_288_network_.php)
+
 [Beej's Guide to Network Programming](http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html)
+
+[Fast-Paced Multiplayer](http://www.gabrielgambetta.com/fast_paced_multiplayer.html)
+
+[Online multiplayer proof-of-concept](https://y4pp.wordpress.com/2014/06/04/online-multiplayer-proof-of-concept/)
+
+[Core network structures for games](http://joostdevblog.blogspot.de/2014/09/core-network-structures-for-games.html)
+
+[Source Multiplayer Networking](https://developer.valvesoftware.com/wiki/Source_Multiplayer_Networking)
+
+[chopin-routing](https://github.com/jsmpereira/chopin-routing/blob/6374e96b15314dcec0d311bf3d5a9b822e4d2e1c/udp-server.lisp)
+

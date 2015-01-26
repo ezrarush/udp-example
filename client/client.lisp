@@ -36,10 +36,10 @@
   (userial:with-buffer packet
     (userial:buffer-rewind)
     (ecase (userial:unserialize :server-opcode)
-      (:welcome     (handle-ack-packet packet))
+      (:welcome     (handle-welcome-packet packet))
       (:update-data (handle-update-data-packet packet)))))
 
-(defun handle-ack-packet (packet)
+(defun handle-welcome-packet (packet)
   (userial:with-buffer packet
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 client-id)
 			      (assert (> sequence *remote-sequence-number*))
