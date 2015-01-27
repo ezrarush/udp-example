@@ -32,7 +32,8 @@
 		       buffer
 		       32768
 		       :host (remote-host channel)
-		       :port (remote-port channel)))
+		       :port (remote-port channel))
+    (next-sequence-number channel))
 
 (defun handle-packet-from-client (packet)
   (userial:with-buffer packet

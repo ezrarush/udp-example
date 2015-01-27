@@ -1,10 +1,5 @@
 (in-package #:udp-server)
 
-;; local sequence number
-(let ((next-id 0))
-  (defun get-next-sequence ()
-    (incf next-id)))
-
 (defvar *channels* (make-hash-table))
 
 (let ((next-id 0))
@@ -42,14 +37,41 @@
     :initarg :remote-port
     :accessor remote-port)
    (local-sequence-number
-    :initform (get-next-sequence)
+    :initform 1
     :accessor sequence-number)
    (remote-sequence-number
     :initform 0
-    :accessor remote-sequence-number)))
+    :accessor remote-sequence-number)
+   (ack-bitfield
+    :type unsigned-byte 32
+    :initform 0
+    :accessor ack-bitfield)
+   (sent-packets
+    :initform (make-hash-table)
+    :accessor sent-packets)
+   (received-packets
+    :initform (make-hash-table)
+    :accessor received-packets)
+   (pending-ack-packets
+    :initform (make-hash-table)
+    :accessor pending-ack-packets)
+   (acked-packets
+    :initform (make-hash-table)
+    :accessor acked-packets)
+   (number-sent)
+   (number-received)
+   (number-lost)
+   (number-acked)
+   (sent-bandwidth)
+   (acked-bandwidth)
+   (rtt)))
 
 (defmethod initialize-instance :after ((self channel) &key)
   (add-channel self))
+
+(defmethod next-sequence-number ((self channel))
+  (with-slots (local-sequence-number) self
+    (incf local-sequence-number)))
 
 (defun make-channel (remote-host remote-port)
   (make-instance 'channel :remote-host remote-host :remote-port remote-port))
