@@ -105,7 +105,7 @@
     (incf number-received)
     (let ((data (make-packet-data :sequence sequence :time 0 :size 0)))
       (setf received-packets (append received-packets (list data))))
-    (when (> sequenc remote-sequence-number)
+    (when (> sequence remote-sequence-number)
       (setf remote-sequence-number sequence))))
 
 
@@ -116,3 +116,19 @@
   sequence
   time
   size)
+
+(defun bit-index-for-sequence (sequence ack)
+  ;; (assert (not (eq sequence ack)))
+  ;; (assert (< sequence ack))
+  (assert (>= ack 1))
+  (assert (<= sequence (- ack 1)))
+  (- ack 1 sequence))
+
+(defun generate-ack-bits (ack received-packets)
+  (let ((ack-bitfield 0))
+    (loop for p-data in received-packets do
+	 (unless (>= (packet-data-sequence p-data) ack)
+	   (let ((bit-index (bit-index-for-sequence (packet-data-sequence p-data) ack)))
+	     (when (<= bit-index 31)
+	       (setf ack-bitfield (bit-ior ack-bitfield (ash 1 bit-index)))))))
+    ack-bitfield))

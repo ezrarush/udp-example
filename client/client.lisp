@@ -1,7 +1,7 @@
 (in-package #:udp-client)
 
 (defvar *server-connection* nil)
-(defvar *client-id*)
+(defvar *client-id* nil)
 
 (let ((next-id 0))
   (defun get-next-sequence ()
@@ -26,7 +26,7 @@
 (defun send-packet-to-server (buffer)
   (usocket:socket-send *server-connection*
 		       buffer
-		       32768))
+		       (length buffer)))
 
 (defun read-packet-from-server ()
   (when (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t) 
@@ -61,6 +61,12 @@
     (userial:serialize* :client-opcode :login
 			:string name)))
 
+(defun make-input-packet ()
+  (userial:with-buffer (userial:make-buffer)
+    (userial:serialize* :client-opcode :input
+			:uint32 (get-next-sequence)
+			:uint32 *remote-sequence-number*)))
+
 (defun make-logout-packet ()
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :client-opcode :logout
@@ -78,7 +84,10 @@
 	 (format t "waiting for ack~%")
 	 (finish-output)
 	 (unwind-protect
-	      (loop (read-packet-from-server))
+	      (loop 
+		 (read-packet-from-server)
+		 (when *client-id* (send-packet-to-server (make-input-packet)))
+		 (sleep 1/3))
 	   (format t "logging out~%")
 	   (finish-output)
 	   (send-packet-to-server (make-logout-packet))))
