@@ -6,7 +6,8 @@
   :author "Ezra Rush <rushwest@gmail.com>"
   :license "The MIT License (MIT) Copyright (c) 2015 Ezra Rush"
   :depends-on (#:usocket
-	       #:userial)
+	       #:userial
+	       #:sdl2)
   :components ((:module client
 			:components ((:file "package")
 				     (:file "serial")

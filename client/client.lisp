@@ -75,20 +75,29 @@
 			:int32 *client-id*)))
 
 (defun client-main (&key (server-ip "127.0.0.1") (port 2448) (name "anonymous"))
-  (connect-to-server server-ip port)
-  (unwind-protect
-       (progn
-	 (format t "sending login message to server~%")
-	 (finish-output)
-	 (send-packet-to-server (make-login-packet name))
-	 (format t "waiting for ack~%")
-	 (finish-output)
-	 (unwind-protect
-	      (loop 
-		 (read-packet-from-server)
-		 (when *client-id* (send-packet-to-server (make-input-packet)))
-		 (sleep 1/3))
-	   (format t "logging out~%")
+  (sdl2:with-init (:everything)
+    (format t "Using SDL Library Version: ~D.~D.~D~%"
+	    sdl2-ffi:+sdl-major-version+
+	    sdl2-ffi:+sdl-minor-version+
+	    sdl2-ffi:+sdl-patchlevel+)
+    (finish-output)
+    (connect-to-server server-ip port)
+    (unwind-protect
+	 (progn
+	   (format t "sending login message to server~%")
 	   (finish-output)
-	   (send-packet-to-server (make-logout-packet))))
-    (disconnect-from-server)))
+	   (send-packet-to-server (make-login-packet name))
+	   (format t "waiting for ack~%")
+	   (finish-output)
+	   (unwind-protect
+		(sdl2:with-event-loop (:method :poll)
+		  (:idle
+		   ()
+		   (read-packet-from-server)
+		   (when *client-id* (send-packet-to-server (make-input-packet)))
+		   (sleep 1/3))
+		  (:quit () t))	   
+	     (format t "logging out~%")
+	     (finish-output)
+	     (send-packet-to-server (make-logout-packet))))
+      (disconnect-from-server))))

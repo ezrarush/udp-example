@@ -4,18 +4,6 @@
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
 
-(defmacro continuable (&body body)
-  `(restart-case
-       (progn ,@body)
-     (continue () :report "Continue")))
-
-(defun update-swank ()
-  (continuable
-    (let ((connection (or swank::*emacs-connection*
-			  (swank::default-connection))))
-      (when connection
-	(swank::handle-requests connection t)))))
-
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
   (setf *server-socket*
@@ -88,14 +76,20 @@
 			:int32 data)))
 
 (defun server-main (&key (server-ip usocket:*wildcard-host*) (port 2448))
-  (start-server server-ip port)
-  (unwind-protect
-       (loop 
-	  (read-packet)
-	  ;; (format t "sending data to ~a client(s)~%" (hash-table-count *clients*))
-	  (finish-output)
-	  (loop for channel being the hash-value in *channels* do
-	       (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (random 10))))
-	  (update-swank)
-	  (sleep 1))
-    (stop-server)))
+  (sdl2:with-init (:everything)
+    (format t "Using SDL Library Version: ~D.~D.~D~%"
+	    sdl2-ffi:+sdl-major-version+
+	    sdl2-ffi:+sdl-minor-version+
+	    sdl2-ffi:+sdl-patchlevel+)
+    (finish-output)
+    (start-server server-ip port)
+    (unwind-protect
+	 (sdl2:with-event-loop (:method :poll)
+	   (:idle
+	    ()
+	    (read-packet)
+	    (loop for channel being the hash-value in *channels* do
+		 (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (random 10))))
+	    (sleep 1))
+	   (:quit () t))
+      (stop-server))))
