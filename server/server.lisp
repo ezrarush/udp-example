@@ -4,6 +4,18 @@
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
 
+;; (defmacro continuable (&body body)
+;;   `(restart-case
+;;        (progn ,@body)
+;;      (continue () :report "Continue")))
+
+;; (defun update-swank ()
+;;   (continuable
+;;     (let ((connection (or swank::*emacs-connection*
+;; 			  (swank::default-connection))))
+;;       (when connection
+;; 	(swank::handle-requests connection t)))))
+
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
   (setf *server-socket*
@@ -20,24 +32,23 @@
   (setf *server-socket* nil))
 
 (defun read-packet ()
-  (when (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t) 
-    (multiple-value-bind (buffer size remote-host remote-port)
-	(usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
-      (setf *current-remote-host* remote-host)
-      (setf *current-remote-port* remote-port)
-      (handle-packet-from-client buffer))))
 
-(defun send-packet (channel buffer)
-  (usocket:socket-send *server-socket* 
-		       buffer
-		       32768
-		       :host (remote-host channel)
-		       :port (remote-port channel))
-    (next-sequence-number channel))
+  (when (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t) 
+  
+    (multiple-value-bind (buffer size remote-host remote-port)
+
+	(usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
+      
+      (setf *current-remote-host* remote-host)
+      
+      (setf *current-remote-port* remote-port)
+      
+      (handle-packet-from-client buffer))))
 
 (defun handle-packet-from-client (packet)
   (userial:with-buffer packet
     (userial:buffer-rewind)
+    
     (ecase (userial:unserialize :client-opcode)
       (:login  (handle-login-packet packet))
       (:logout (handle-logout-packet packet)))))
@@ -56,11 +67,12 @@
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 client-id)
-      (assert client-id)
-      (let ((client (lookup-client-by-id client-id)))
-	(remove-client client)
-	(format t "client ~a: logged out~%" client-id)
-	(finish-output)))))
+			      (update-channel (lookup-channel-by-port *current-remote-port*) sequence)
+			      (assert client-id)
+			      (let ((client (lookup-client-by-id client-id)))
+				(remove-client client)
+				(format t "client ~a: logged out~%" client-id)
+				(finish-output)))))
 
 (defun make-welcome-packet (sequence ack client-id)
   (userial:with-buffer (userial:make-buffer)
@@ -81,9 +93,10 @@
   (unwind-protect
        (loop 
 	  (read-packet)
-	  (format t "sending data to ~a client(s)~%" (hash-table-count *clients*))
+	  ;; (format t "sending data to ~a client(s)~%" (hash-table-count *clients*))
 	  (finish-output)
 	  (loop for channel being the hash-value in *channels* do
 	       (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (random 10))))
+	  ;; (update-swank)
 	  (sleep 1))
     (stop-server)))
