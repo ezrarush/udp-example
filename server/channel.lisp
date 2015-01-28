@@ -87,7 +87,7 @@
   (with-slots (remote-host remote-port local-sequence-number sent-packets pending-ack-packets number-sent) self
     (usocket:socket-send *server-socket* 
 			 buffer
-			 32768
+			 (length buffer)
 			 :host remote-host
 			 :port remote-port)
     (let ((data (make-packet-data :sequence local-sequence-number :time 0 :size 0)))
