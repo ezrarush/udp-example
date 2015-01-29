@@ -3,7 +3,8 @@
 (defvar *server-socket* nil)
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
-(defvar *delta-time* (/ 1.0 30.0))
+
+(defvar *last-time*)
 
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
@@ -86,14 +87,17 @@
 	    sdl2-ffi:+sdl-patchlevel+)
     (finish-output)
     (start-server server-ip port)
+    (setf *last-time* (sdl2:get-ticks))
     (unwind-protect
 	 (sdl2:with-event-loop (:method :poll)
 	   (:idle
 	    ()
 	    (read-packet)
-	    (loop for channel being the hash-value in *channels* do
-		 (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (generate-ack-bits channel) (random 10)))
-		 (update channel))
-	    (sleep 1/32))
+	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
+	    (when (>= *delta-time* 100/3)
+	      (incf *last-time* 100/3)
+	      (loop for channel being the hash-value in *channels* do
+		   (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (generate-ack-bits channel) (random 10)))
+		   (update channel))))
 	   (:quit () t))
       (stop-server))))

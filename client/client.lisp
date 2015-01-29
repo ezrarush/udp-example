@@ -3,6 +3,9 @@
 (defvar *server-connection* nil)
 (defvar *client-id* nil)
 
+(defvar *last-time*)
+(defvar *delta-time*)
+
 (let ((next-id 0))
   (defun get-next-sequence ()
     (incf next-id)))
@@ -28,7 +31,7 @@
 		       buffer
 		       (length buffer)))
 
-(defun read-packet-from-server ()
+(defun read-packet ()
   (loop until (not (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t)) do 
     (handle-packet-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))))
 
@@ -82,6 +85,7 @@
 	    sdl2-ffi:+sdl-patchlevel+)
     (finish-output)
     (connect-to-server server-ip port)
+    (setf *last-time* (sdl2:get-ticks))
     (unwind-protect
 	 (progn
 	   (format t "sending login message to server~%")
@@ -93,10 +97,11 @@
 		(sdl2:with-event-loop (:method :poll)
 		  (:idle
 		   ()
-		   (read-packet-from-server)
-		   (when *client-id* (send-packet-to-server (make-input-packet)))
-		   (sleep 1/3)
-		   )
+		   (read-packet)
+		   (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
+		   (when (>= *delta-time* 100)
+		     (incf *last-time* 100)
+		     (when *client-id* (send-packet-to-server (make-input-packet)))))
 		  (:quit () t))	   
 	     (format t "logging out~%")
 	     (finish-output)
