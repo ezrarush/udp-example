@@ -5,6 +5,7 @@
 (defvar *current-remote-port*)
 
 (defvar *last-time*)
+(defvar *delta-time*)
 
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
@@ -43,40 +44,40 @@
       (assert (plusp (length name)))
       (let ((client (make-client name))
 	    (channel (make-channel *current-remote-host* *current-remote-port*)))
-	(setf (channel client) channel)
+	(setf (channel client) channel)  
 	(send-packet channel (make-welcome-packet (sequence-number channel) (remote-sequence-number channel) (generate-ack-bits channel) (client-id client)))
 	(format t "client ~a logged in~%" (client-id client))
 	(finish-output)))))
 
 (defun handle-input-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack)
-			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence))))
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
+			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield))))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 client-id)
-			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack  :uint32 ack-bitfield :int32 client-id)
+			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)
 				(format t "client ~a: logged out~%" client-id)
 				(finish-output)))))
 
-(defun make-welcome-packet (sequence ack bit-field client-id)
+(defun make-welcome-packet (sequence ack ack-bitfield client-id)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :welcome
 			:uint32 sequence
 			:uint32 ack
-			:uint32 bit-field
+			:uint32 ack-bitfield
 			:int32 client-id)))
 
-(defun make-update-data-packet (sequence ack bit-field data)
+(defun make-update-data-packet (sequence ack ack-bitfield data)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :update-data
 			:uint32 sequence
 			:uint32 ack
-			:uint32 bit-field
+			:uint32 ack-bitfield
 			:int32 data)))
 
 (defun server-main (&key (server-ip usocket:*wildcard-host*) (port 2448))

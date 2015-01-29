@@ -1,4 +1,4 @@
-(in-package #:udp-server)
+(in-package #:udp-client)
 
 (defvar *channels* (make-hash-table))
 
@@ -80,12 +80,10 @@
   (add-channel self))
 
 (defmethod send-packet ((self channel) buffer)
-  (with-slots (remote-host remote-port local-sequence-number sent-packets pending-ack-packets number-sent) self
-    (usocket:socket-send *server-socket* 
+  (with-slots (local-sequence-number sent-packets pending-ack-packets number-sent) self
+    (usocket:socket-send *server-connection* 
 			 buffer
-			 (length buffer)
-			 :host remote-host
-			 :port remote-port)
+			 (length buffer))
     (let ((data (make-packet-data :sequence local-sequence-number :time (sdl2:get-ticks) :size (length buffer))))
       (setf sent-packets (append sent-packets (list data)))
       (setf pending-ack-packets (append pending-ack-packets (list data))))

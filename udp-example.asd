@@ -11,6 +11,7 @@
   :components ((:module client
 			:components ((:file "package")
 				     (:file "serial")
+				     (:file "channel")
 				     (:file "client")))
 	       (:module server
 			:components ((:file "package")
