@@ -49,10 +49,10 @@
    (remote-sequence-number
     :initform 0
     :accessor remote-sequence-number)
-   (ack-bitfield
-    :type (unsigned-byte 32)
-    :initform 0
-    :accessor ack-bitfield)
+   ;; (ack-bitfield
+   ;;  :type (unsigned-byte 32)
+   ;;  :initform 0
+   ;;  :accessor ack-bitfield)
    (sent-packets
     :initform (list)
     :accessor sent-packets)
@@ -90,7 +90,7 @@
 			 (length buffer)
 			 :host remote-host
 			 :port remote-port)
-    (let ((data (make-packet-data :sequence local-sequence-number :time 0 :size 0)))
+    (let ((data (make-packet-data :sequence local-sequence-number :time (sdl2:get-ticks) :size (length buffer))))
       (setf sent-packets (append sent-packets (list data)))
       (setf pending-ack-packets (append pending-ack-packets (list data))))
     (incf number-sent))
@@ -100,14 +100,30 @@
   (with-slots (local-sequence-number) self
     (incf local-sequence-number)))
 
-(defmethod update-channel ((self channel) sequence)
+(defmethod generate-ack-bits ((self channel))
+  (with-slots (remote-sequence-number received-packets) self
+    (let ((ack-bitfield 0))
+      (loop for p-data in received-packets do
+	   (unless (>= (packet-data-sequence p-data) remote-sequence-number)
+	     (let ((bit-index (bit-index-for-sequence (packet-data-sequence p-data) remote-sequence-number)))
+	       (when (<= bit-index 31)
+		 (setf ack-bitfield (bit-ior ack-bitfield (ash 1 bit-index)))))))
+      ack-bitfield)))
+
+(defmethod receive-packet ((self channel) sequence)
   (with-slots (number-received received-packets remote-sequence-number) self
     (incf number-received)
-    (let ((data (make-packet-data :sequence sequence :time 0 :size 0)))
+    (let ((data (make-packet-data :sequence sequence :time (sdl2:get-ticks) :size 0)))
       (setf received-packets (append received-packets (list data))))
     (when (> sequence remote-sequence-number)
       (setf remote-sequence-number sequence))))
 
+(defmethod update ((self channel))
+  (with-slots (sent-packets received-packets pending-ack-packets acked-packets) self
+    (setf sent-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 1001)) sent-packets))
+    (setf received-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 1001)) received-packets))
+    (setf pending-ack-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 1001)) pending-ack-packets))
+    (setf acked-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 2001)) acked-packets))))
 
 (defun make-channel (remote-host remote-port)
   (make-instance 'channel :remote-host remote-host :remote-port remote-port))
@@ -123,12 +139,3 @@
   (assert (>= ack 1))
   (assert (<= sequence (- ack 1)))
   (- ack 1 sequence))
-
-(defun generate-ack-bits (ack received-packets)
-  (let ((ack-bitfield 0))
-    (loop for p-data in received-packets do
-	 (unless (>= (packet-data-sequence p-data) ack)
-	   (let ((bit-index (bit-index-for-sequence (packet-data-sequence p-data) ack)))
-	     (when (<= bit-index 31)
-	       (setf ack-bitfield (bit-ior ack-bitfield (ash 1 bit-index)))))))
-    ack-bitfield))

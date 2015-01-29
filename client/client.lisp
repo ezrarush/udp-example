@@ -29,7 +29,7 @@
 		       (length buffer)))
 
 (defun read-packet-from-server ()
-  (when (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t) 
+  (loop until (not (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t)) do 
     (handle-packet-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))))
 
 (defun handle-packet-from-server (packet)
@@ -95,7 +95,8 @@
 		   ()
 		   (read-packet-from-server)
 		   (when *client-id* (send-packet-to-server (make-input-packet)))
-		   (sleep 1/3))
+		   (sleep 1/3)
+		   )
 		  (:quit () t))	   
 	     (format t "logging out~%")
 	     (finish-output)

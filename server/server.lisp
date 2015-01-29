@@ -3,6 +3,7 @@
 (defvar *server-socket* nil)
 (defvar *current-remote-host*)
 (defvar *current-remote-port*)
+(defvar *delta-time* (/ 1.0 30.0))
 
 (defun start-server (server-ip port)
   (assert (not *server-socket*))
@@ -20,7 +21,7 @@
   (setf *server-socket* nil))
 
 (defun read-packet ()
-  (when (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t) 
+  (loop until (not (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t)) do
     (multiple-value-bind (buffer size remote-host remote-port)
 	(usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
       (setf *current-remote-host* remote-host)
@@ -49,12 +50,12 @@
 (defun handle-input-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack)
-			      (update-channel (lookup-channel-by-port *current-remote-port*) sequence))))
+			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence))))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 client-id)
-			      (update-channel (lookup-channel-by-port *current-remote-port*) sequence)
+			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)
@@ -66,6 +67,7 @@
     (userial:serialize* :server-opcode :welcome
 			:uint32 sequence
 			:uint32 ack
+			
 			:int32 client-id)))
 
 (defun make-update-data-packet (sequence ack data)
@@ -89,7 +91,8 @@
 	    ()
 	    (read-packet)
 	    (loop for channel being the hash-value in *channels* do
-		 (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (random 10))))
-	    (sleep 1))
+		 (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (random 10)))
+		 (update channel))
+	    (sleep 1/32))
 	   (:quit () t))
       (stop-server))))
