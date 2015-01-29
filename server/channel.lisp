@@ -107,7 +107,7 @@
 	   (unless (>= (packet-data-sequence p-data) remote-sequence-number)
 	     (let ((bit-index (bit-index-for-sequence (packet-data-sequence p-data) remote-sequence-number)))
 	       (when (<= bit-index 31)
-		 (setf ack-bitfield (bit-ior ack-bitfield (ash 1 bit-index)))))))
+		 (setf ack-bitfield (boole boole-ior ack-bitfield (ash 1 bit-index)))))))
       ack-bitfield)))
 
 (defmethod receive-packet ((self channel) sequence)
@@ -121,7 +121,10 @@
 (defmethod update ((self channel))
   (with-slots (sent-packets received-packets pending-ack-packets acked-packets) self
     (setf sent-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 1001)) sent-packets))
-    (setf received-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 1001)) received-packets))
+    (if received-packets
+	(let* ((latest-sequence (packet-data-sequence (car (last received-packets))))
+	       (minimum-sequence (- latest-sequence 34)))
+	  (setf received-packets (remove-if (lambda (x) (<= (packet-data-sequence x) minimum-sequence)) received-packets))))
     (setf pending-ack-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 1001)) pending-ack-packets))
     (setf acked-packets (remove-if (lambda (x) (> (- (sdl2:get-ticks) (packet-data-time x)) 2001)) acked-packets))))
 

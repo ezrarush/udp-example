@@ -43,7 +43,7 @@
       (let ((client (make-client name))
 	    (channel (make-channel *current-remote-host* *current-remote-port*)))
 	(setf (channel client) channel)
-	(send-packet channel (make-welcome-packet (sequence-number channel) (remote-sequence-number channel) (client-id client)))
+	(send-packet channel (make-welcome-packet (sequence-number channel) (remote-sequence-number channel) (generate-ack-bits channel) (client-id client)))
 	(format t "client ~a logged in~%" (client-id client))
 	(finish-output)))))
 
@@ -62,19 +62,20 @@
 				(format t "client ~a: logged out~%" client-id)
 				(finish-output)))))
 
-(defun make-welcome-packet (sequence ack client-id)
+(defun make-welcome-packet (sequence ack bit-field client-id)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :welcome
 			:uint32 sequence
 			:uint32 ack
-			
+			:uint32 bit-field
 			:int32 client-id)))
 
-(defun make-update-data-packet (sequence ack data)
+(defun make-update-data-packet (sequence ack bit-field data)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :update-data
 			:uint32 sequence
 			:uint32 ack
+			:uint32 bit-field
 			:int32 data)))
 
 (defun server-main (&key (server-ip usocket:*wildcard-host*) (port 2448))
@@ -91,7 +92,7 @@
 	    ()
 	    (read-packet)
 	    (loop for channel being the hash-value in *channels* do
-		 (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (random 10)))
+		 (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (generate-ack-bits channel) (random 10)))
 		 (update channel))
 	    (sleep 1/32))
 	   (:quit () t))

@@ -41,7 +41,7 @@
 
 (defun handle-welcome-packet (packet)
   (userial:with-buffer packet
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 client-id)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 bit-field :int32 client-id)
 			      (assert (> sequence *remote-sequence-number*))
 			      (setf *remote-sequence-number* sequence)
 			      (setf *client-id* client-id)
@@ -50,7 +50,7 @@
 
 (defun handle-update-data-packet (packet)
   (userial:with-buffer packet
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :int32 data)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 bit-field :int32 data)
 			      (assert (> sequence *remote-sequence-number*))
 			      (setf *remote-sequence-number* sequence)
 			      (format t "received packet ~a - data: ~A~%" sequence data)
