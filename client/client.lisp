@@ -14,17 +14,18 @@
 				port
 				:protocol :datagram
 				:element-type '(unsigned-byte 8)))
-  (setf *channel* (make-channel server-ip port)))
+  (setf *channel* (network-engine:make-channel server-ip port)))
 
 (defun disconnect-from-server ()
   (assert *server-connection*)
   (usocket:socket-close *server-connection*)
   (setf *server-connection* nil))
 
-;; (defun send-packet-to-server (buffer)
-;;   (usocket:socket-send *server-connection*
-;; 		       buffer
-;; 		       (length buffer)))
+(defun send-packet (buffer)
+  (usocket:socket-send *server-connection*
+		       buffer
+		       (length buffer))
+  (network-engine:process-sent-packet *channel* (sdl2:get-ticks) (length buffer)))
 
 (defun read-packet ()
   (loop until (not (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t)) do 
@@ -40,7 +41,7 @@
 (defun handle-welcome-packet (packet)
   (userial:with-buffer packet
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 client-id)
-			      (receive-packet *channel* sequence ack ack-bitfield)
+			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
 			      (setf *client-id* client-id)
 			      (format t "received packet ~a - ack with client id: ~A~%" sequence client-id)
 			      (finish-output))))
@@ -48,7 +49,7 @@
 (defun handle-update-data-packet (packet)
   (userial:with-buffer packet
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 data)
-			      (receive-packet *channel* sequence ack ack-bitfield)
+			      (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
 			      (format t "received packet ~a - data: ~A~%" sequence data)
 			      (finish-output))))
 
@@ -85,7 +86,7 @@
 	 (progn
 	   (format t "sending login message to server~%")
 	   (finish-output)
-	   (send-packet *channel* (make-login-packet name))
+	   (send-packet (make-login-packet name))
 	   (format t "waiting for ack~%")
 	   (finish-output)
 	   (unwind-protect
@@ -96,9 +97,9 @@
 		   (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
 		   (when (>= *delta-time* 100)
 		     (incf *last-time* 100)
-		     (when *client-id* (send-packet *channel* (make-input-packet (sequence-number *channel*) (remote-sequence-number *channel*) (generate-ack-bits *channel*))))))
+		     (when *client-id* (send-packet (make-input-packet (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))))
 		  (:quit () t))	   
 	     (format t "logging out~%")
 	     (finish-output)
-	     (send-packet *channel* (make-logout-packet (sequence-number *channel*) (remote-sequence-number *channel*) (generate-ack-bits *channel*)))))
+	     (send-packet (make-logout-packet (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*)))))
       (disconnect-from-server))))

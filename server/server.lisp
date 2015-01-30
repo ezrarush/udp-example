@@ -22,6 +22,14 @@
   (usocket:socket-close *server-socket*)
   (setf *server-socket* nil))
 
+(defun send-packet (channel buffer)
+  (usocket:socket-send *server-socket*
+		       buffer
+		       (length buffer)
+		       :host (network-engine:remote-host channel)
+		       :port (network-engine:remote-port channel))
+  (network-engine:process-sent-packet channel (sdl2:get-ticks) (length buffer)))
+
 (defun read-packet ()
   (loop until (not (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t)) do
     (multiple-value-bind (buffer size remote-host remote-port)
@@ -43,21 +51,21 @@
     (userial:unserialize-let* (:string name)
       (assert (plusp (length name)))
       (let ((client (make-client name))
-	    (channel (make-channel *current-remote-host* *current-remote-port*)))
+	    (channel (network-engine:make-channel *current-remote-host* *current-remote-port*)))
 	(setf (channel client) channel)  
-	(send-packet channel (make-welcome-packet (sequence-number channel) (remote-sequence-number channel) (generate-ack-bits channel) (client-id client)))
+	(send-packet channel (make-welcome-packet (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
 	(format t "client ~a logged in~%" (client-id client))
 	(finish-output)))))
 
 (defun handle-input-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
-			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield))))
+			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield))))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack  :uint32 ack-bitfield :int32 client-id)
-			      (receive-packet (lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
+			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)
@@ -97,8 +105,8 @@
 	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
 	    (when (>= *delta-time* 100/3)
 	      (incf *last-time* 100/3)
-	      (loop for channel being the hash-value in *channels* do
-		   (send-packet channel (make-update-data-packet (sequence-number channel) (remote-sequence-number channel) (generate-ack-bits channel) (random 10)))
-		   (update channel))))
+	      (loop for channel being the hash-value in network-engine:*channels* do
+		   (send-packet channel (make-update-data-packet (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
+		   (network-engine:update channel))))
 	   (:quit () t))
       (stop-server))))

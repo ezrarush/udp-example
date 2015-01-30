@@ -10,6 +10,8 @@ Install SBCL and Quicklisp (https://www.youtube.com/watch?v=VnWVu8VVDbI)
 
 Download this repository and place it in your quicklisp\local-projects\ folder so that quicklisp can find it.  
 
+Download my [network-engine](https://github.com/ezrarush/network-engine) repository and place it in your quicklisp\local-projects\ folder so that quicklisp can load it as a dependency.
+
 ###Server
 
 Run the following in the command line from the project folder:
