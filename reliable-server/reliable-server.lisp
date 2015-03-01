@@ -1,4 +1,4 @@
-(in-package #:udp-server)
+(in-package #:udp-reliable-server)
 
 (defvar *last-time*)
 (defvar *delta-time*)
@@ -10,7 +10,8 @@
   (network-engine:close-socket))
 
 (defun send-packet (channel buffer)
-  (network-engine:send-packet channel buffer))
+  (network-engine:send-packet channel buffer)
+  (network-engine:process-sent-packet channel (sdl2:get-ticks) (length buffer)))
 
 (defun read-packet ()
   (network-engine:receive-packets)
@@ -33,33 +34,40 @@
       (let ((client (make-client name))
 	    (channel (network-engine:lookup-channel-by-port network-engine:*current-remote-port*)))
 	(setf (channel client) channel)  
-	(send-packet channel (make-welcome-packet (client-id client)))
+	(send-packet channel (make-welcome-packet (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
 	(format t "client ~a logged in~%" (client-id client))
 	(finish-output)))))
 
 (defun handle-input-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:int32 client-id)
-			      (format t "received input packet from client id:~a~%" client-id)
-			      (finish-output))))
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
+			      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port network-engine:*current-remote-port*) sequence ack ack-bitfield)
+			      )))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:int32 client-id)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack  :uint32 ack-bitfield :int32 client-id)
+			      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port network-engine:*current-remote-port*) sequence ack ack-bitfield)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)
 				(format t "client ~a: logged out~%" client-id)
 				(finish-output)))))
 
-(defun make-welcome-packet (client-id)
+(defun make-welcome-packet (sequence ack ack-bitfield client-id)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :welcome
+			:uint32 sequence
+			:uint32 ack
+			:uint32 ack-bitfield
 			:int32 client-id)))
 
-(defun make-update-data-packet (data)
+(defun make-update-data-packet (sequence ack ack-bitfield data)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :server-opcode :update-data
+			:uint32 sequence
+			:uint32 ack
+			:uint32 ack-bitfield
 			:int32 data)))
 
 (defun server-main (&key (server-ip "127.0.0.1") (port 2448))
@@ -80,6 +88,8 @@
 	    (when (>= *delta-time* 100/3)
 	      (incf *last-time* 100/3)
 	      (loop for channel being the hash-value in network-engine:*channels* do
-		   (send-packet channel (make-update-data-packet (random 10))))))
+		   (send-packet channel (make-update-data-packet (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
+		   ;; (network-engine:update-metrics channel)
+		   )))
 	   (:quit () t))
       (stop-server))))

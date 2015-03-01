@@ -5,8 +5,7 @@
   :description "A simple UDP server and client"
   :author "Ezra Rush <rushwest@gmail.com>"
   :license "The MIT License (MIT) Copyright (c) 2015 Ezra Rush"
-  :depends-on (#:usocket
-	       #:userial
+  :depends-on (#:userial
 	       #:sdl2
 	       #:network-engine)
   :components ((:module client

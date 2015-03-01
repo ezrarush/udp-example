@@ -1,4 +1,4 @@
-(in-package #:udp-client)
+(in-package #:udp-reliable-client)
 
 (defvar *channel*)
 (defvar *client-id* nil)
@@ -14,7 +14,8 @@
   (network-engine:close-socket))
 
 (defun send-packet (buffer)
-  (network-engine:send-packet *channel* buffer))
+  (network-engine:send-packet *channel* buffer)
+  (network-engine:process-sent-packet *channel* (sdl2:get-ticks) (length buffer)))
 
 (defun read-packet ()
   (network-engine:receive-packets)
@@ -30,15 +31,17 @@
 
 (defun handle-welcome-packet (packet)
   (userial:with-buffer packet
-    (userial:unserialize-let* (:int32 client-id)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 client-id)
+			      ;; (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
 			      (setf *client-id* client-id)
-			      (format t "received welcome packet with client id: ~A~%" client-id)
+			      (format t "received packet ~a - ack with client id: ~A~%" sequence client-id)
 			      (finish-output))))
 
 (defun handle-update-data-packet (packet)
   (userial:with-buffer packet
-    (userial:unserialize-let* (:int32 data)
-			      (format t "received packet with data: ~A~%" data)
+    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield :int32 data)
+			      ;; (network-engine:process-received-packet *channel* sequence ack ack-bitfield)
+			      (format t "received packet ~a - data: ~A~%" sequence data)
 			      (finish-output))))
 
 (defun make-login-packet (name)
@@ -46,14 +49,19 @@
     (userial:serialize* :client-opcode :login
 			:string name)))
 
-(defun make-input-packet ()
+(defun make-input-packet (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :client-opcode :input
-			:int32 *client-id*)))
+			:uint32 sequence
+			:uint32 ack
+			:uint32 ack-bitfield)))
 
-(defun make-logout-packet ()
+(defun make-logout-packet (sequence ack ack-bitfield)
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :client-opcode :logout
+			:uint32 sequence
+			:uint32 ack
+			:uint32 ack-bitfield
 			:int32 *client-id*)))
 
 (defun client-main (&key (server-ip "127.0.0.1") (port 2448) (name "anonymous"))
@@ -80,9 +88,10 @@
 		   (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
 		   (when (>= *delta-time* 100)
 		     (incf *last-time* 100)
-		     (when *client-id* (send-packet (make-input-packet)))))
+		     (when *client-id* (send-packet (make-input-packet (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*))))
+		     (network-engine:update-metrics *channel*)))
 		  (:quit () t))	   
 	     (format t "logging out~%")
 	     (finish-output)
-	     (send-packet (make-logout-packet))))
+	     (send-packet (make-logout-packet (network-engine:sequence-number *channel*) (network-engine:remote-sequence-number *channel*) (network-engine:generate-ack-bitfield *channel*)))))
       (disconnect-from-server))))
