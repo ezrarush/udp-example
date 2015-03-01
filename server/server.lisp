@@ -1,42 +1,48 @@
 (in-package #:udp-server)
 
-(defvar *server-socket* nil)
-(defvar *current-remote-host*)
-(defvar *current-remote-port*)
+;; (defvar *server-socket* nil)
+;; (defvar *current-remote-host*)
+;; (defvar *current-remote-port*)
 
 (defvar *last-time*)
 (defvar *delta-time*)
 
 (defun start-server (server-ip port)
-  (assert (not *server-socket*))
-  (setf *server-socket*
-	(usocket:socket-connect nil 
-				nil
-				:protocol :datagram
-				:element-type '(unsigned-byte 8)
-				:local-host server-ip
-				:local-port port)))
+  ;; (assert (not *server-socket*))
+  ;; (setf *server-socket*
+  ;; 	(usocket:socket-connect nil 
+  ;; 				nil
+  ;; 				:protocol :datagram
+  ;; 				:element-type '(unsigned-byte 8)
+  ;; 				:local-host server-ip
+  ;; 				:local-port port))
+  (network-engine:open-server-socket server-ip port))
 
 (defun stop-server ()
-  (assert *server-socket*)
-  (usocket:socket-close *server-socket*)
-  (setf *server-socket* nil))
+  ;; (assert *server-socket*)
+  ;; (usocket:socket-close *server-socket*)
+  ;; (setf *server-socket* nil)
+  (network-engine:close-socket))
 
 (defun send-packet (channel buffer)
-  (usocket:socket-send *server-socket*
-		       buffer
-		       (length buffer)
-		       :host (network-engine:remote-host channel)
-		       :port (network-engine:remote-port channel))
+  ;; (usocket:socket-send *server-socket*
+  ;; 		       buffer
+  ;; 		       (length buffer)
+  ;; 		       :host (network-engine:remote-host channel)
+  ;; 		       :port (network-engine:remote-port channel))
+
+  (network-engine:send-packet channel buffer)
+  
   (network-engine:process-sent-packet channel (sdl2:get-ticks) (length buffer)))
 
 (defun read-packet ()
-  (loop until (not (usocket:wait-for-input *server-socket* :timeout 0 :ready-only t)) do
-    (multiple-value-bind (buffer size remote-host remote-port)
-	(usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
-      (setf *current-remote-host* remote-host)
-      (setf *current-remote-port* remote-port)
-      (handle-packet-from-client buffer))))
+  (loop until (not (usocket:wait-for-input network-engine:*socket* :timeout 0 :ready-only t)) do
+    ;; (multiple-value-bind (buffer size remote-host remote-port)
+    ;; 	(usocket:socket-receive *server-socket* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil)
+    ;;   (setf *current-remote-host* remote-host)
+    ;;   (setf *current-remote-port* remote-port)
+    ;;   (handle-packet-from-client buffer))
+             (handle-packet-from-client (network-engine:receive-packet))))
 
 (defun handle-packet-from-client (packet)
   (userial:with-buffer packet
@@ -51,7 +57,7 @@
     (userial:unserialize-let* (:string name)
       (assert (plusp (length name)))
       (let ((client (make-client name))
-	    (channel (network-engine:make-channel *current-remote-host* *current-remote-port*)))
+	    (channel (network-engine:make-channel network-engine:*current-remote-host* network-engine:*current-remote-port*)))
 	(setf (channel client) channel)  
 	(send-packet channel (make-welcome-packet (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (client-id client)))
 	(format t "client ~a logged in~%" (client-id client))
@@ -60,12 +66,12 @@
 (defun handle-input-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
-			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield))))
+			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port network-engine:*current-remote-port*) sequence ack ack-bitfield))))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
     (userial:unserialize-let* (:uint32 sequence :uint32 ack  :uint32 ack-bitfield :int32 client-id)
-			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port *current-remote-port*) sequence ack ack-bitfield)
+			      (network-engine:process-received-packet (network-engine:lookup-channel-by-port network-engine:*current-remote-port*) sequence ack ack-bitfield)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)

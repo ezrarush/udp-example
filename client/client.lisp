@@ -1,6 +1,5 @@
 (in-package #:udp-client)
 
-(defvar *server-connection* nil)
 (defvar *channel*)
 (defvar *client-id* nil)
 
@@ -8,28 +7,19 @@
 (defvar *delta-time*)
 
 (defun connect-to-server (server-ip port)
-  (assert (not *server-connection*))
-  (setf *server-connection* 
-	(usocket:socket-connect server-ip
-				port
-				:protocol :datagram
-				:element-type '(unsigned-byte 8)))
+  (network-engine:open-client-socket server-ip port)
   (setf *channel* (network-engine:make-channel server-ip port)))
 
 (defun disconnect-from-server ()
-  (assert *server-connection*)
-  (usocket:socket-close *server-connection*)
-  (setf *server-connection* nil))
+  (network-engine:close-socket))
 
 (defun send-packet (buffer)
-  (usocket:socket-send *server-connection*
-		       buffer
-		       (length buffer))
+  (network-engine:send-packet *channel* buffer)
   (network-engine:process-sent-packet *channel* (sdl2:get-ticks) (length buffer)))
 
 (defun read-packet ()
-  (loop until (not (usocket:wait-for-input *server-connection* :timeout 0 :ready-only t)) do 
-    (handle-packet-from-server (usocket:socket-receive *server-connection* (make-array 32768 :element-type '(unsigned-byte 8) :fill-pointer t) nil))))
+  (loop until (not (usocket:wait-for-input network-engine:*socket* :timeout 0 :ready-only t)) do 
+    (handle-packet-from-server (network-engine:receive-packet))))
 
 (defun handle-packet-from-server (packet)
   (userial:with-buffer packet

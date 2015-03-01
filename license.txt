@@ -1,4 +1,4 @@
-License File for Battleship
+License File for UDP Example
 
 The MIT License (MIT)
 
