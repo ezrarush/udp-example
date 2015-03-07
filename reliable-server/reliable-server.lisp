@@ -10,18 +10,13 @@
   (network-engine:close-socket))
 
 (defun send-packet (channel buffer)
-  (network-engine:send-packet channel buffer)
-  (network-engine:process-sent-packet channel (sdl2:get-ticks) (length buffer)))
+  (network-engine:send-packet channel buffer))
 
-(defun read-packet ()
-  (network-engine:receive-packets)
-  (loop for channel being the hash-value in network-engine:*channels* do
-       (mapc (lambda (msg) (handle-packet-from-client (network-engine:message-buffer msg))) (network-engine:received-packets channel))
-       (setf (network-engine:received-packets channel) (list))))
+(defun read-packets ()
+  (network-engine:receive-packets #'handle-packet-from-client))
 
 (defun handle-packet-from-client (packet)
   (userial:with-buffer packet
-    (userial:buffer-rewind)
     (ecase (userial:unserialize :client-opcode)
       (:login  (handle-login-packet packet))
       (:input  (handle-input-packet packet))
@@ -40,14 +35,13 @@
 
 (defun handle-input-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack :uint32 ack-bitfield)
-			      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port network-engine:*current-remote-port*) sequence ack ack-bitfield)
+    (userial:unserialize-let* ()
+
 			      )))
 
 (defun handle-logout-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:uint32 sequence :uint32 ack  :uint32 ack-bitfield :int32 client-id)
-			      ;; (network-engine:process-received-packet (network-engine:lookup-channel-by-port network-engine:*current-remote-port*) sequence ack ack-bitfield)
+    (userial:unserialize-let* (:int32 client-id)
 			      (assert client-id)
 			      (let ((client (lookup-client-by-id client-id)))
 				(remove-client client)
@@ -56,21 +50,21 @@
 
 (defun make-welcome-packet (sequence ack ack-bitfield client-id)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :welcome
-			:uint32 sequence
+    (userial:serialize* :uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
+			:server-opcode :welcome
 			:int32 client-id)))
 
 (defun make-update-data-packet (sequence ack ack-bitfield data)
   (userial:with-buffer (userial:make-buffer)
-    (userial:serialize* :server-opcode :update-data
-			:uint32 sequence
+    (userial:serialize* :uint32 sequence
 			:uint32 ack
 			:uint32 ack-bitfield
+			:server-opcode :update-data
 			:int32 data)))
 
-(defun server-main (&key (server-ip "127.0.0.1") (port 2448))
+(defun main (&key (server-ip "127.0.0.1") (port 2448))
   (sdl2:with-init (:everything)
     (format t "Using SDL Library Version: ~D.~D.~D~%"
 	    sdl2-ffi:+sdl-major-version+
@@ -80,16 +74,29 @@
     (start-server server-ip port)
     (setf *last-time* (sdl2:get-ticks))
     (unwind-protect
-	 (sdl2:with-event-loop (:method :poll)
-	   (:idle
-	    ()
-	    (read-packet)
-	    (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
-	    (when (>= *delta-time* 100/3)
-	      (incf *last-time* 100/3)
-	      (loop for channel being the hash-value in network-engine:*channels* do
-		   (send-packet channel (make-update-data-packet (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
-		   ;; (network-engine:update-metrics channel)
-		   )))
-	   (:quit () t))
+	 (let ((stats-accumulator 0))
+	   (sdl2:with-event-loop (:method :poll)
+	     (:idle
+	      ()
+	      (read-packets)
+	      (setf *delta-time* (- (sdl2:get-ticks) *last-time*))
+	      (when (>= *delta-time* 100/3)
+		(incf *last-time* *delta-time*)
+		(incf stats-accumulator *delta-time*)
+		(loop for channel being the hash-value in network-engine:*channels* do
+		     (send-packet channel (make-update-data-packet (network-engine:sequence-number channel) (network-engine:remote-sequence-number channel) (network-engine:generate-ack-bitfield channel) (random 10)))
+		     (network-engine:channel-update channel *delta-time*)
+		     (when (>= stats-accumulator 5000)
+		       (format t "rtt ~ams, sent:~a, acked:~a, lost:~a(~a), sent bandwidth ~akbps, acked bandwidth ~akkps~%"
+			       (network-engine:rtt channel)
+			       (network-engine:number-sent channel)
+			       (network-engine:number-acked channel)
+			       (network-engine:number-lost channel)
+			       (if (> (network-engine:number-sent channel) 0) 0 0)
+			       (network-engine:bandwidth-sent channel)
+			       (network-engine:bandwidth-acked channel))))
+
+		(when (>= stats-accumulator 5000)
+		  (setf stats-accumulator 0))))
+	     (:quit () t)))
       (stop-server))))

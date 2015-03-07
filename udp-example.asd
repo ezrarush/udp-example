@@ -16,4 +16,13 @@
 			:components ((:file "package")
 				     (:file "serial")
 				     (:file "client-database")
-				     (:file "server")))))
+				     (:file "server")))
+	       (:module reliable-client
+			:components ((:file "package")
+				     (:file "serial")
+				     (:file "reliable-client")))
+	       (:module reliable-server
+			:components ((:file "package")
+				     (:file "serial")
+				     (:file "client-database")
+				     (:file "reliable-server")))))

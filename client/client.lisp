@@ -17,9 +17,10 @@
   (network-engine:send-packet *channel* buffer))
 
 (defun read-packet ()
-  (network-engine:receive-packets)
-  (mapc (lambda (msg) (handle-packet-from-server (network-engine:message-buffer msg))) (network-engine:received-packets *channel*))
-  (setf (network-engine:received-packets *channel*) ()))
+  ;; (network-engine:receive-packets)
+  ;; (mapc (lambda (msg) (handle-packet-from-server (network-engine:message-buffer msg))) (network-engine:received-packets *channel*))
+  ;; (setf (network-engine:received-packets *channel*) ())
+  )
 
 (defun handle-packet-from-server (packet)
   (userial:with-buffer packet
@@ -49,7 +50,8 @@
 (defun make-input-packet ()
   (userial:with-buffer (userial:make-buffer)
     (userial:serialize* :client-opcode :input
-			:int32 *client-id*)))
+			:int32 *client-id*
+			:int32 (random 10))))
 
 (defun make-logout-packet ()
   (userial:with-buffer (userial:make-buffer)

@@ -38,7 +38,6 @@ sbcl --load run-client.lisp
 
 Repeat for as many clients as desired
 
-
 #References
 
 [USocket Test Datagram](https://github.com/bsmr-common-lisp/usocket/blob/a9ad102c41d94105038195ca5bfb31d2c3d61ba5/test/test-datagram.lisp)

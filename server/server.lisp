@@ -13,10 +13,11 @@
   (network-engine:send-packet channel buffer))
 
 (defun read-packet ()
-  (network-engine:receive-packets)
-  (loop for channel being the hash-value in network-engine:*channels* do
-       (mapc (lambda (msg) (handle-packet-from-client (network-engine:message-buffer msg))) (network-engine:received-packets channel))
-       (setf (network-engine:received-packets channel) (list))))
+  ;; (network-engine:receive-packets)
+  ;; (loop for channel being the hash-value in network-engine:*channels* do
+  ;;      (mapc (lambda (msg) (handle-packet-from-client (network-engine:message-buffer msg))) (network-engine:received-packets channel))
+  ;;      (setf (network-engine:received-packets channel) (list)))
+  )
 
 (defun handle-packet-from-client (packet)
   (userial:with-buffer packet
@@ -39,8 +40,8 @@
 
 (defun handle-input-packet (packet)
   (userial:with-buffer packet 
-    (userial:unserialize-let* (:int32 client-id)
-			      (format t "received input packet from client id:~a~%" client-id)
+    (userial:unserialize-let* (:int32 client-id :int32 data)
+			      (format t "received input data:~a from client id:~a~%" data client-id)
 			      (finish-output))))
 
 (defun handle-logout-packet (packet)
