@@ -13,7 +13,7 @@
   (network-engine:send-packet channel buffer))
 
 (defun read-packets ()
-  (network-engine:receive-packets #'handle-packet-from-client))
+  (network-engine:receive-reliable-packets #'handle-packet-from-client))
 
 (defun handle-packet-from-client (packet)
   (userial:with-buffer packet

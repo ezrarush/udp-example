@@ -17,10 +17,7 @@
   (network-engine:send-packet *channel* buffer))
 
 (defun read-packet ()
-  ;; (network-engine:receive-packets)
-  ;; (mapc (lambda (msg) (handle-packet-from-server (network-engine:message-buffer msg))) (network-engine:received-packets *channel*))
-  ;; (setf (network-engine:received-packets *channel*) ())
-  )
+ (network-engine:receive-packets #'handle-packet-from-server))
 
 (defun handle-packet-from-server (packet)
   (userial:with-buffer packet

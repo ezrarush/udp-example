@@ -17,7 +17,7 @@
   (network-engine:send-packet *channel* buffer))
 
 (defun read-packet ()
-  (network-engine:receive-packets #'handle-packet-from-server))
+  (network-engine:receive-reliable-packets #'handle-packet-from-server))
 
 (defun handle-packet-from-server (packet)
   (userial:with-buffer packet
